@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+
+# Django Media
+media/
+
+# Static files (collectstatic 결과물)
+staticfiles/
+
+# Environment Variables
+.env
+.env.*
+
+# Logs
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Pytest
+.pytest_cache/
+
+# Coverage
+.coverage
+htmlcov/
+
+# mypy
+.mypy_cache/
+
+# Build
+build/
+dist/
+*.egg-info/
+
+# Docker
+docker-compose.override.yml
+
+# Nginx temp
+nginx/logs/
+
+# Secrets
+*.pem
+*.key
+*.crt
+
+# Local settings
+local_settings.py
