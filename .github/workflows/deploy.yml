@@ -2,7 +2,7 @@ name: Deploy (systemd-lite)
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main ]    # main 브랜치에 push될 때 배포 진행
 
 jobs:
   deploy:
@@ -11,27 +11,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # [실무 단계 1] GitHub Actions 서버의 현재 IP를 알아냅니다.
-      - name: Get GitHub Actions IP
-        id: ip
-        run: echo "ipv4=$(curl -s https://checkip.amazonaws.com)" >> $GITHUB_OUTPUT
-
-      # [실무 단계 2] AWS에 로그인하여, 방금 알아낸 IP에게만 22번 포트를 임시로 열어줍니다.
-      - name: Configure AWS credentials & Open SSH Port
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2 # 서울 리전
-      - name: Allow SSH
-        run: |
-          aws ec2 authorize-security-group-ingress \
-            --group-id ${{ secrets.AWS_SG_ID }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.ip.outputs.ipv4 }}/32
-
-      # [기존 단계] 이제 안전하게 접속해서 git pull 및 장고 배포를 진행합니다.
       - name: SSH pull & restart via systemd
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -40,24 +19,20 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             set -e
+
+            # 1) 깃 저장소 루트에서 최신 코드
             cd ${{ secrets.REPO_DIR }}
             git pull origin main
+
+            # 2) 장고 앱 폴더에서 migrate
             cd ${{ secrets.APP_DIR }}
-            if [ -d "myvenv" ]; then
+            if [ -d "myvenv" ]; then       # 여기선 자신이 쓰는 가상환경 이름을 써주세요
               source myvenv/bin/activate
               pip install --upgrade pip
               if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
               python manage.py migrate --noinput
             fi
+
+            # 3) 서비스 재시작
             sudo systemctl restart uwsgi
             sudo nginx -t && sudo systemctl reload nginx || true
-
-      # [실무 단계 3] 배포가 성공하든 실패하든, 열었던 22번 포트를 반드시 다시 닫습니다.
-      - name: Close SSH Port
-        if: always()
-        run: |
-          aws ec2 revoke-security-group-ingress \
-            --group-id ${{ secrets.AWS_SG_ID }} \
-            --protocol tcp \
-            --port 22 \
-            --cidr ${{ steps.ip.outputs.ipv4 }}/32
